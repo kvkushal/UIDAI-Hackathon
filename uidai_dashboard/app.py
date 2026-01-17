@@ -4,6 +4,7 @@ A data-driven planning and early-warning system that measures digital equity,
 anticipates Aadhaar demand, and simulates where UIDAI should act first.
 """
 
+import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -133,7 +134,17 @@ def get_issue_type(row):
 @st.cache_data
 def load_data():
     """Load the consolidated district equity data."""
-    df = pd.read_csv('data/district_equity_all_india.csv')
+    # Use absolute path relative to this script
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(current_dir, 'data', 'district_equity_all_india.csv')
+    
+    try:
+        df = pd.read_csv(file_path)
+    except FileNotFoundError:
+        # Fallback for local testing or different CWD
+        st.error(f"Data file not found at: {file_path}")
+        st.stop()
+        
     return df
 
 # =============================================================================
