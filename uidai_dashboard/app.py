@@ -84,11 +84,11 @@ DETAILED_SUGGESTIONS = {
 
 # Simple one-line suggestions for dashboard display
 SIMPLE_SUGGESTIONS = {
-    'access_stress': '[Action] Add more enrollment centers and deploy mobile vans',
-    'update_burden': '[Action] Set up dedicated update camps',
-    'stability_risk': '[Action] Audit system uptime and power/internet',
-    'critical': '[URGENT] Allocate emergency resources now',
-    'healthy': '[OK] Maintain current operations'
+    'access_stress': '📌 Add more enrollment centers and deploy mobile vans',
+    'update_burden': '🔄 Set up dedicated update camps',
+    'stability_risk': '⚡ Audit system uptime and power/internet',
+    'critical': '🚨 Allocate emergency resources now',
+    'healthy': '✅ Maintain current operations'
 }
 
 def get_badge(score, metric_key):
@@ -97,22 +97,22 @@ def get_badge(score, metric_key):
     
     if higher_is_better:
         if score >= 0.75:
-            return "Excellent", "#22c55e", "[+]"
+            return "Excellent", "#22c55e", "🟢"
         elif score >= 0.5:
-            return "Good", "#84cc16", "[o]"
+            return "Good", "#84cc16", "🟡"
         elif score >= 0.3:
-            return "Needs Attention", "#f59e0b", "[!]"
+            return "Needs Attention", "#f59e0b", "🟠"
         else:
-            return "Critical", "#ef4444", "[X]"
+            return "Critical", "#ef4444", "🔴"
     else:
         if score <= 0.25:
-            return "Excellent", "#22c55e", "[+]"
+            return "Excellent", "#22c55e", "🟢"
         elif score <= 0.5:
-            return "Good", "#84cc16", "[o]"
+            return "Good", "#84cc16", "🟡"
         elif score <= 0.7:
-            return "Needs Attention", "#f59e0b", "[!]"
+            return "Needs Attention", "#f59e0b", "🟠"
         else:
-            return "Critical", "#ef4444", "[X]"
+            return "Critical", "#ef4444", "🔴"
 
 def get_issue_type(row):
     """Determine the primary issue type for a district."""
@@ -221,29 +221,29 @@ def get_state_suggestions(state_df):
     stability_risk = len(state_df[state_df['SRS'] > 0.6])
     
     if low_dei > 0:
-        suggestions.append(f"[ALERT] **{low_dei} district(s)** have critically low DEI scores and need immediate attention")
+        suggestions.append(f"🚨 **{low_dei} district(s)** have critically low DEI scores and need immediate attention")
     
     if access_stress > 0:
-        suggestions.append(f"[ACCESS] **{access_stress} district(s)** face access stress - consider expanding enrollment infrastructure")
+        suggestions.append(f"📍 **{access_stress} district(s)** face access stress - consider expanding enrollment infrastructure")
     
     if update_burden > 0:
-        suggestions.append(f"[UPDATE] **{update_burden} district(s)** have high update burden - deploy dedicated update camps")
+        suggestions.append(f"🔄 **{update_burden} district(s)** have high update burden - deploy dedicated update camps")
     
     if stability_risk > 0:
-        suggestions.append(f"[STABILITY] **{stability_risk} district(s)** show stability risks - audit system uptime and connectivity")
+        suggestions.append(f"⚡ **{stability_risk} district(s)** show stability risks - audit system uptime and connectivity")
     
     if avg_dei >= 0.7:
-        suggestions.append("[OK] Overall state performance is **excellent** - focus on maintaining standards")
+        suggestions.append("✅ Overall state performance is **excellent** - focus on maintaining standards")
     elif avg_dei >= 0.5:
-        suggestions.append("[INFO] Overall state performance is **moderate** - targeted improvements can yield significant gains")
+        suggestions.append("📊 Overall state performance is **moderate** - targeted improvements can yield significant gains")
     else:
-        suggestions.append("[WARNING] State-wide performance is **below par** - comprehensive intervention strategy needed")
+        suggestions.append("⚠️ State-wide performance is **below par** - comprehensive intervention strategy needed")
     
     # Best and worst performers
     best = state_df.loc[state_df['DEI'].idxmax()]
     worst = state_df.loc[state_df['DEI'].idxmin()]
-    suggestions.append(f"[BEST] Best performer: **{best['district'].title()}** (DEI: {best['DEI']:.3f})")
-    suggestions.append(f"[WORST] Needs most attention: **{worst['district'].title()}** (DEI: {worst['DEI']:.3f})")
+    suggestions.append(f"🏆 Best performer: **{best['district'].title()}** (DEI: {best['DEI']:.3f})")
+    suggestions.append(f"📉 Needs most attention: **{worst['district'].title()}** (DEI: {worst['DEI']:.3f})")
     
     return suggestions
 
