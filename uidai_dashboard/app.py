@@ -320,7 +320,7 @@ def generate_district_report(state, district, data, state_data):
 
 STATE: {state}
 DISTRICT: {district.title()}
-REPORT DATE: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}
+REPORT DATE: {pd.Timestamp.now(tz='Asia/Kolkata').strftime('%Y-%m-%d %H:%M')} IST
 
 --------------------------------------------------------------------------------
                               PERFORMANCE SCORES
@@ -392,7 +392,7 @@ def generate_district_pdf(state, district, data, state_data):
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 7, f'State: {state}', 0, 1)
     pdf.cell(0, 7, f'District: {district.title()}', 0, 1)
-    pdf.cell(0, 7, f'Report Date: {pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
+    pdf.cell(0, 7, f'Report Date: {pd.Timestamp.now(tz="Asia/Kolkata").strftime("%Y-%m-%d %H:%M")} IST', 0, 1)
     pdf.ln(5)
     
     # Performance Scores Section
