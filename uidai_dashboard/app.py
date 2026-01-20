@@ -9,6 +9,10 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import requests
+import json
+from fpdf import FPDF
+from io import BytesIO
 
 # =============================================================================
 # PAGE CONFIGURATION
@@ -30,7 +34,7 @@ METRIC_INFO = {
         'tooltip': 'Overall score measuring digital service equity. Combines access, responsiveness, inclusion, stability, and visibility. Higher is better.',
         'higher_is_better': True
     },
-    'ASS': {
+    'AHS': {
         'name': 'Access Health Score',
         'short': 'Access',
         'tooltip': 'Measures how easily citizens can access Aadhaar services. Low scores indicate strained infrastructure. Higher is better.',
@@ -119,7 +123,7 @@ def get_issue_type(row):
     """Determine the primary issue type for a district."""
     if row['DEI'] < 0.5:
         return 'critical'
-    elif row['ASS'] < 0.5:
+    elif row['AHS'] < 0.5:
         return 'access_stress'
     elif row['UBS'] > 0.7:
         return 'update_burden'
@@ -150,6 +154,51 @@ def load_data():
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
+# GeoJSON loading for India district map
+@st.cache_resource
+def load_india_geojson():
+    """Load India district GeoJSON from GitHub."""
+    try:
+        url = "https://raw.githubusercontent.com/geohacker/india/master/district/india_district.geojson"
+        response = requests.get(url, timeout=60)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        st.warning(f"Could not load district map: {e}")
+        return None
+
+def normalize_district_name(name):
+    """Normalize district name for matching."""
+    if pd.isna(name):
+        return ""
+    name = str(name).lower().strip()
+    # Remove common suffixes/prefixes
+    name = name.replace("district", "").strip()
+    # Handle special characters
+    name = name.replace(".", "").replace("-", " ").replace("_", " ")
+    # Remove extra spaces
+    name = " ".join(name.split())
+    return name
+
+def get_dei_category(dei_score):
+    """Categorize DEI score into Good/Warning/Critical."""
+    if dei_score >= 0.7:
+        return "Good"
+    elif dei_score >= 0.5:
+        return "Warning"
+    else:
+        return "Critical"
+
+def get_dei_color(dei_score):
+    """Get color for DEI score: Green/Orange/Red."""
+    if dei_score >= 0.7:
+        return "#22c55e"  # Green
+    elif dei_score >= 0.5:
+        return "#f59e0b"  # Orange
+    else:
+        return "#ef4444"  # Red
+
 def get_score_color(score, reverse=False):
     """Return color based on score value."""
     if reverse:
@@ -169,7 +218,7 @@ def get_score_color(score, reverse=False):
 
 def get_risk_category(row):
     """Classify district into risk categories."""
-    if row['ASS'] < 0.5:
+    if row['AHS'] < 0.5:
         return "Access Stress"
     elif row['UBS'] > 0.7:
         return "Update Burden"
@@ -188,7 +237,7 @@ def get_recommendation(row):
             'action': 'Prioritize comprehensive resource allocation and infrastructure development.'
         }
     
-    if row['ASS'] < 0.5:
+    if row['AHS'] < 0.5:
         return {
             'level': 'warning',
             'title': 'High Access Stress',
@@ -227,7 +276,7 @@ def get_state_suggestions(state_df):
     
     # Count districts with issues
     low_dei = len(state_df[state_df['DEI'] < 0.5])
-    access_stress = len(state_df[state_df['ASS'] < 0.5])
+    access_stress = len(state_df[state_df['AHS'] < 0.5])
     update_burden = len(state_df[state_df['UBS'] > 0.7])
     stability_risk = len(state_df[state_df['SRS'] > 0.6])
     
@@ -280,7 +329,7 @@ REPORT DATE: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}
   METRIC                    SCORE      STATE AVG    DIFFERENCE    STATUS
   -------------------------------------------------------------------------
   Digital Equity Index      {data['DEI']:.3f}      {state_data['DEI'].mean():.3f}        {data['DEI'] - state_data['DEI'].mean():+.3f}        {get_badge(data['DEI'], 'DEI')[0]}
-  Access Health Score       {data['ASS']:.3f}      {state_data['ASS'].mean():.3f}        {data['ASS'] - state_data['ASS'].mean():+.3f}        {get_badge(data['ASS'], 'ASS')[0]}
+  Access Health Score       {data['AHS']:.3f}      {state_data['AHS'].mean():.3f}        {data['AHS'] - state_data['AHS'].mean():+.3f}        {get_badge(data['AHS'], 'AHS')[0]}
   Update Load Score         {data['UBS']:.3f}      {state_data['UBS'].mean():.3f}        {data['UBS'] - state_data['UBS'].mean():+.3f}        {get_badge(data['UBS'], 'UBS')[0]}
   Stability Score           {data['SRS']:.3f}      {state_data['SRS'].mean():.3f}        {data['SRS'] - state_data['SRS'].mean():+.3f}        {get_badge(data['SRS'], 'SRS')[0]}
 
@@ -322,6 +371,100 @@ SUMMARY:
 """
     return report
 
+def generate_district_pdf(state, district, data, state_data):
+    """Generate a PDF report for a district."""
+    issue_type = get_issue_type(data)
+    detailed_suggestion = DETAILED_SUGGESTIONS.get(issue_type, DETAILED_SUGGESTIONS['healthy'])
+    rec = get_recommendation(data)
+    
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # Title
+    pdf.set_font('Helvetica', 'B', 18)
+    pdf.set_text_color(0, 51, 102)
+    pdf.cell(0, 12, 'AADHAAR N.E.X.U.S - DISTRICT REPORT', 0, 1, 'C')
+    pdf.ln(5)
+    
+    # Header info
+    pdf.set_font('Helvetica', '', 11)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 7, f'State: {state}', 0, 1)
+    pdf.cell(0, 7, f'District: {district.title()}', 0, 1)
+    pdf.cell(0, 7, f'Report Date: {pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
+    pdf.ln(5)
+    
+    # Performance Scores Section
+    pdf.set_font('Helvetica', 'B', 14)
+    pdf.set_fill_color(0, 51, 102)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 10, 'PERFORMANCE SCORES', 0, 1, 'L', fill=True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(3)
+    
+    # Table header
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(50, 8, 'Metric', 1, 0, 'C', fill=True)
+    pdf.cell(25, 8, 'Score', 1, 0, 'C', fill=True)
+    pdf.cell(30, 8, 'State Avg', 1, 0, 'C', fill=True)
+    pdf.cell(25, 8, 'Diff', 1, 0, 'C', fill=True)
+    pdf.cell(35, 8, 'Status', 1, 1, 'C', fill=True)
+    
+    # Table rows
+    pdf.set_font('Helvetica', '', 10)
+    metrics = [
+        ('Digital Equity Index', 'DEI'),
+        ('Access Health Score', 'AHS'),
+        ('Update Load Score', 'UBS'),
+        ('Stability Score', 'SRS')
+    ]
+    for label, key in metrics:
+        score = data[key]
+        avg = state_data[key].mean()
+        diff = score - avg
+        status = get_badge(score, key)[0]
+        pdf.cell(50, 7, label, 1)
+        pdf.cell(25, 7, f'{score:.3f}', 1, 0, 'C')
+        pdf.cell(30, 7, f'{avg:.3f}', 1, 0, 'C')
+        pdf.cell(25, 7, f'{diff:+.3f}', 1, 0, 'C')
+        pdf.cell(35, 7, status, 1, 1, 'C')
+    pdf.ln(5)
+    
+    # Assessment Section
+    pdf.set_font('Helvetica', 'B', 14)
+    pdf.set_fill_color(0, 51, 102)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 10, 'ASSESSMENT', 0, 1, 'L', fill=True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(3)
+    
+    pdf.set_font('Helvetica', 'B', 11)
+    pdf.cell(0, 7, f'Status: {rec["title"]}', 0, 1)
+    pdf.set_font('Helvetica', '', 10)
+    pdf.multi_cell(0, 6, f'Summary: {rec["message"]}')
+    pdf.ln(5)
+    
+    # Recommendations Section
+    pdf.set_font('Helvetica', 'B', 14)
+    pdf.set_fill_color(0, 51, 102)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 10, 'RECOMMENDATIONS', 0, 1, 'L', fill=True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(3)
+    
+    pdf.set_font('Helvetica', '', 10)
+    # Clean up the detailed suggestion for PDF
+    clean_suggestion = detailed_suggestion.replace('\\n', '\n').strip()
+    pdf.multi_cell(0, 6, clean_suggestion)
+    
+    # Output to bytes
+    pdf_output = BytesIO()
+    pdf.output(pdf_output)
+    pdf_output.seek(0)
+    return pdf_output.getvalue()
+
 # Function to style the dataframe
 def highlight_score(val, metric):
     if metric in ['DEI', 'Access']:
@@ -347,6 +490,139 @@ def main():
     st.caption("**National Equity eXecution & Utilization System** | A data-driven planning and early-warning system")
     
     st.divider()
+    
+    # ==========================================================================
+    # NATIONAL PULSE - STATE HEATMAP (High Performance)
+    # ==========================================================================
+    st.header("🗺️ The National Pulse: Real-Time View of Service Equity")
+    
+    # Aggregated National Stats
+    total_districts = len(df)
+    national_avg = df['DEI'].mean()
+    
+    # State-level aggregation for the map
+    state_map_df = df.groupby('state').agg({
+        'DEI': 'mean',
+        'AHS': 'mean',
+        'UBS': 'mean',
+        'SRS': 'mean',
+        'district': 'count'
+    }).reset_index()
+    state_map_df['dei_category'] = state_map_df['DEI'].apply(get_dei_category)
+    
+    # Fix state name mismatches between data and GeoJSON
+    state_name_mapping = {
+        'Jammu and Kashmir': 'Jammu & Kashmir',  # GeoJSON uses ampersand
+    }
+    state_map_df['state'] = state_map_df['state'].replace(state_name_mapping)
+    
+    # Load State GeoJSON
+    @st.cache_resource
+    def load_state_geojson():
+        """Load India State GeoJSON."""
+        try:
+            # Using lightweight state geojson (~1MB) - Much faster
+            url = "https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson"
+            r = requests.get(url, timeout=10)
+            if r.status_code == 200:
+                return r.json()
+            return None
+        except:
+            return None
+
+    with st.spinner("Loading National Map..."):
+        geojson_data = load_state_geojson()
+    
+    if geojson_data:
+        # Prepare state labels for matching
+        col_map, col_stats = st.columns([3, 1])
+        
+        with col_map:
+            fig_map = px.choropleth(
+                state_map_df,
+                geojson=geojson_data,
+                locations='state',
+                # Use 'ST_NM' as property key for this GeoJSON
+                featureidkey='properties.ST_NM', 
+                color='DEI',
+                color_continuous_scale='RdYlGn',  # Red (low) -> Yellow (avg) -> Green (high)
+                color_continuous_midpoint=state_map_df['DEI'].mean(),  # National avg as midpoint
+                range_color=[state_map_df['DEI'].min(), state_map_df['DEI'].max()],
+                hover_name='state',
+                hover_data={'DEI': ':.3f', 'district': True},
+                labels={'DEI': 'DEI (Higher = Better)', 'district': 'Districts'},
+                title="State-wise Digital Equity Performance"
+            )
+
+            
+            fig_map.update_geos(
+                fitbounds="locations",
+                visible=False,
+                bgcolor='rgba(0,0,0,0)'
+            )
+            
+            fig_map.update_layout(
+                height=650,
+                margin=dict(l=0, r=0, t=30, b=0),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                geo=dict(bgcolor='rgba(0,0,0,0)'),
+                coloraxis_colorbar=dict(
+                    title="DEI (Higher = Better)",
+                    orientation="v",
+                    yanchor="middle",
+                    y=0.5,
+                    xanchor="left",
+                    x=1.02
+                )
+            )
+            
+            st.plotly_chart(fig_map, use_container_width=True)
+            
+            # Show small states/UTs that may not be visible on the map
+            small_uts = ['Andaman & Nicobar Islands', 'Dadra & Nagar Haveli & Daman & Diu', 
+                        'Lakshadweep', 'Puducherry', 'Chandigarh', 'Delhi', 'Goa']
+            small_states_data = state_map_df[state_map_df['state'].isin(small_uts)].sort_values('DEI', ascending=False)
+            
+            if len(small_states_data) > 0:
+                st.caption("**Small States / UTs (DEI)**")
+                cols = st.columns(len(small_states_data))
+                for i, (_, row) in enumerate(small_states_data.iterrows()):
+                    with cols[i]:
+                        st.markdown(f"**{row['state']}**: {row['DEI']:.2f}")
+            
+        with col_stats:
+            st.subheader("National Overview")
+            st.metric("National Avg DEI", f"{national_avg:.3f}")
+            st.metric("Total Stats/UTs", len(state_map_df))
+            st.metric("Total Districts", total_districts)
+            
+            st.markdown("---")
+            st.caption("Performance Breakdown (States)")
+            
+            s_good = len(state_map_df[state_map_df['dei_category'] == 'Good'])
+            s_warn = len(state_map_df[state_map_df['dei_category'] == 'Warning'])
+            s_crit = len(state_map_df[state_map_df['dei_category'] == 'Critical'])
+            
+            st.markdown(f"🟢 **Good**: {s_good}")
+            st.markdown(f"🟠 **Warning**: {s_warn}")
+            st.markdown(f"🔴 **Critical**: {s_crit}")
+            
+            st.markdown("---")
+            st.caption("⚠️ Lowest Performing States")
+            bottom_states = state_map_df.nsmallest(5, 'DEI')
+            for _, row in bottom_states.iterrows():
+                st.markdown(f"🔴 **{row['state']}**: {row['DEI']:.3f}")
+
+    else:
+        st.warning("⚠️ Map unavailable (offline or connection issue). Showing listing below.")
+        st.dataframe(
+            state_map_df[['state', 'DEI', 'dei_category']].sort_values('DEI'),
+            use_container_width=True
+        )
+
+    st.divider()
+
     
     # ==========================================================================
     # SIDEBAR
@@ -406,11 +682,11 @@ def main():
     # MAIN CONTENT - STATE LEVEL SUMMARY
     # ==========================================================================
     
-    st.header("State Performance Summary")
+    st.header(f"📊 {selected_state} - Performance Summary")
     st.caption("Hover over metric names to see explanations")
     
     avg_dei = state_df['DEI'].mean()
-    avg_ass = state_df['ASS'].mean()
+    avg_ahs = state_df['AHS'].mean()
     avg_ubs = state_df['UBS'].mean()
     avg_srs = state_df['SRS'].mean()
     
@@ -427,12 +703,12 @@ def main():
         )
     
     with col2:
-        badge_text, _, badge_icon = get_badge(avg_ass, 'ASS')
+        badge_text, _, badge_icon = get_badge(avg_ahs, 'AHS')
         st.metric(
             label="Access Health Score",
-            value=f"{avg_ass:.3f}",
+            value=f"{avg_ahs:.3f}",
             delta=f"{badge_icon} {badge_text}",
-            help=METRIC_INFO['ASS']['tooltip']
+            help=METRIC_INFO['AHS']['tooltip']
         )
     
     with col3:
@@ -534,7 +810,7 @@ def main():
     st.divider()
     st.subheader("District Scores Table")
 
-    table_data = state_df[['district', 'DEI', 'ASS', 'UBS', 'SRS', 'risk_category']].copy()
+    table_data = state_df[['district', 'DEI', 'AHS', 'UBS', 'SRS', 'risk_category']].copy()
     table_data.columns = ['District', 'DEI', 'Access', 'Update Load', 'Stability', 'Status']
     table_data['District'] = table_data['District'].str.title()
     
@@ -580,17 +856,17 @@ def main():
     
     # Export button
     with col_export:
-        report_text = generate_district_report(
+        pdf_data = generate_district_pdf(
             selected_state, 
             selected_district_detail, 
             district_data, 
             state_df
         )
         st.download_button(
-            label="Download Report",
-            data=report_text,
-            file_name=f"{selected_district_detail.lower().replace(' ', '_')}_report.txt",
-            mime="text/plain",
+            label="📥 Download PDF Report",
+            data=pdf_data,
+            file_name=f"{selected_district_detail.lower().replace(' ', '_')}_report.pdf",
+            mime="application/pdf",
             use_container_width=True
         )
     
@@ -610,13 +886,13 @@ def main():
         st.caption(f"{badge_icon} {badge_text}")
     
     with col2:
-        badge_text, _, badge_icon = get_badge(district_data['ASS'], 'ASS')
-        delta_val = district_data['ASS'] - avg_ass
+        badge_text, _, badge_icon = get_badge(district_data['AHS'], 'AHS')
+        delta_val = district_data['AHS'] - avg_ahs
         st.metric(
             label="Access Health Score",
-            value=f"{district_data['ASS']:.3f}",
+            value=f"{district_data['AHS']:.3f}",
             delta=f"{delta_val:+.3f} vs state",
-            help=METRIC_INFO['ASS']['tooltip']
+            help=METRIC_INFO['AHS']['tooltip']
         )
         st.caption(f"{badge_icon} {badge_text}")
     

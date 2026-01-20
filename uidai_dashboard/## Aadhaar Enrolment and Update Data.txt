@@ -1,0 +1,31 @@
+## Aadhaar Enrolment and Update Data
+
+This catalog contains age-group-wise and pin-code-wise monthly Aadhaar enrolment and update data across India.
+-  Released Under: [National Data Sharing and Accessibility Policy
+                (NDSAP)](https://data.gov.in/sites/default/files/NDSAP.pdf)
+-  Contributor: [Ministry of Electronics and Information Technology (MeitY)](https://data.gov.in/ministrydepartment/Ministry%20of%20Electronics%20and%20Information%20Technology%20%28MeitY%29)[Unique Identification Authority of India (UIDAI)](https://data.gov.in/ministrydepartment/Unique%20Identification%20Authority%20of%20India%20%28UIDAI%29)
+- Domain: 
+
+                  Open Government Data(OGD) Platform India
+
+-  Published On: 
+                16/05/2025
+               Updated On:
+                14/08/2025
+
+[National Data Sharing and Accessibility Policy
+                (NDSAP)](https://data.gov.in/sites/default/files/NDSAP.pdf)
+[Ministry of Electronics and Information Technology (MeitY)](https://data.gov.in/ministrydepartment/Ministry%20of%20Electronics%20and%20Information%20Technology%20%28MeitY%29)
+[Unique Identification Authority of India (UIDAI)](https://data.gov.in/ministrydepartment/Unique%20Identification%20Authority%20of%20India%20%28UIDAI%29)
+Open Government Data(OGD) Platform India
+- [Facebook](javascript:void(0))
+- [Twitter](javascript:void(0))
+[Facebook](javascript:void(0))
+[Twitter](javascript:void(0))
+[Please Login to Subscribe](javascript:void(0))
+[Catalog API](https://data.gov.in/apis/1ddb4f34-6f2c-42b9-a6e2-c78baa53cc5b)
+[Zip Download](https://data.gov.in/catalog/aadhaar-enrolment-and-update-data)
+[Aadhaar](https://data.gov.in/keywords/Aadhaar)
+[Enrollment](https://data.gov.in/keywords/Enrollment)
+[Update](https://data.gov.in/keywords/Update)
+[Union/State Government Administration](https://data.gov.in/tag-cloud/9311)
