@@ -6,7 +6,7 @@
 
 ## Overview
 
-Aadhaar N.E.X.U.S is an interactive Streamlit dashboard that provides **nationwide visibility** into the Digital Equity Index (DEI) across **32 states/UTs** and **645+ districts**.
+Aadhaar N.E.X.U.S is an interactive Streamlit dashboard that provides **nationwide visibility** into the Digital Equity Index (DEI) across **36 states/UTs** and **645+ districts**.
 
 🌐 Live Dashboard:
 👉 https://aadhaar-nexus.streamlit.app/
@@ -37,7 +37,7 @@ Aadhaar N.E.X.U.S is an interactive Streamlit dashboard that provides **nationwi
 | West | 5 | 115 |
 | East | 10 | 188 |
 | North | 9 | 188 |
-| **Total** | **32** | **645** |
+| **Total** | **36** | **645** |
 
 ## Quick Start
 
